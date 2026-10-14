@@ -7,6 +7,7 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
   sendPasswordResetEmail,
+  sendEmailVerification,
   signOut as fbSignOut
 } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
@@ -103,8 +104,15 @@ export async function loginWithEmail(email: string, pass: string) {
 export async function registerWithEmail(email: string, pass: string, displayName?: string) {
   try {
     const result = await createUserWithEmailAndPassword(auth, email.trim(), pass);
-    if (displayName && result.user) {
-      await updateProfile(result.user, { displayName });
+    if (result.user) {
+      if (displayName) {
+        await updateProfile(result.user, { displayName });
+      }
+      try {
+        await sendEmailVerification(result.user);
+      } catch (verificationErr) {
+        console.warn('Could not send email verification:', verificationErr);
+      }
     }
     return result.user;
   } catch (error) {

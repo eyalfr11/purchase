@@ -131,6 +131,7 @@ export const AuthGate: React.FC = () => {
         await signInWithEmail(email, password);
       } else {
         await signUpWithEmail(email, password, displayName.trim() || undefined);
+        setSuccessMsg(`הרישום בוצע בהצלחה! נשלח דוא״ל אימות אל ${email}. המשתמש נרשם בהרשאות בסיסיות (צפייה בלבד) שמנהל המערכת יוכל לשנות.`);
       }
     } catch (err) {
       const parsed = parseAuthError(err);
@@ -354,6 +355,18 @@ export const AuthGate: React.FC = () => {
             )}
 
             <form onSubmit={handleEmailSubmit} className="space-y-3.5 text-right">
+              {emailMode === 'register' && (
+                <div className="p-2.5 bg-indigo-50/70 border border-indigo-100 rounded-xl text-[11px] text-indigo-900 leading-relaxed space-y-1">
+                  <div className="font-bold flex items-center gap-1.5 text-indigo-950">
+                    <UserPlus className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                    <span>הרשמה פשוטה ומהירה</span>
+                  </div>
+                  <p className="text-slate-600">
+                    נרשמים עם דוא״ל וסיסמה, מקבלים מייל אימות, והחשבון מוקם מיידית בהרשאות בסיסיות (צפייה בלבד) שמנהל המערכת יוכל לשנות.
+                  </p>
+                </div>
+              )}
+
               {/* Display name field (Registration only) */}
               {emailMode === 'register' && (
                 <div>
