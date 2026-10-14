@@ -64,6 +64,8 @@ service cloud.firestore {
     function isValidUser(data) {
       return data.email is string && data.email.size() <= 255 &&
              (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 128)) &&
+             (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 2048)) &&
+             (!('uid' in data) || (data.uid is string && data.uid.size() <= 128)) &&
              data.role in ['admin', 'manager', 'viewer'] &&
              (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 64)) &&
              (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64));
@@ -80,13 +82,12 @@ service cloud.firestore {
     // Users collection (User Profiles & Roles)
     match /users/{userId} {
       allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(userId) && request.auth.uid == userId && isValidUser(incoming()) && (
-        incoming().role == 'viewer' || (isBootstrappedAdmin() && incoming().role == 'admin')
+      allow create: if isSignedIn() && isValidId(userId) && (
+        (request.auth.uid == userId && isValidUser(incoming())) ||
+        (isAdmin() && isValidUser(incoming()))
       );
       allow update: if isValidId(userId) && (
-        // Admin can update user role and data
         (isAdmin() && isValidUser(incoming())) ||
-        // User can update their own displayName without changing role
         (isOwner(userId) && isValidUser(incoming()) && incoming().role == existing().role)
       );
       allow delete: if isAdmin() && isValidId(userId);

@@ -37,47 +37,57 @@ export const AuthGate: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isDomainError, setIsDomainError] = useState(false);
+  const [isOperationNotAllowedError, setIsOperationNotAllowedError] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [copiedDomain, setCopiedDomain] = useState(false);
 
   const currentDomain = typeof window !== 'undefined' ? window.location.hostname : '';
 
-  const parseAuthError = (err: unknown): { message: string; isDomain: boolean } => {
+  const parseAuthError = (err: unknown): { message: string; isDomain: boolean; isNotAllowed: boolean } => {
     const raw = err instanceof Error ? err.message : String(err);
     console.error('Auth error:', raw);
 
+    if (raw.includes('auth/operation-not-allowed')) {
+      return {
+        message: 'חיבור בדוא״ל/סיסמה עדיין לא הופעל ב-Firebase Console. יש להפעיל את Email/Password בהגדרות Authentication.',
+        isDomain: false,
+        isNotAllowed: true
+      };
+    }
     if (raw.includes('auth/unauthorized-domain')) {
       return {
         message: `הדומיין הנוכחי (${currentDomain}) עדיין אינו מורשה ב-Firebase Authentication. יש להוסיף אותו ב-Firebase Console כדי לאפשר כניסה עם חשבון Google.`,
-        isDomain: true
+        isDomain: true,
+        isNotAllowed: false
       };
     }
     if (raw.includes('auth/user-not-found') || raw.includes('auth/wrong-password') || raw.includes('auth/invalid-credential')) {
-      return { message: 'כתובת הדוא״ל או הסיסמה שהוזנו אינם נכונים.', isDomain: false };
+      return { message: 'כתובת הדוא״ל או הסיסמה שהוזנו אינם נכונים.', isDomain: false, isNotAllowed: false };
     }
     if (raw.includes('auth/email-already-in-use')) {
-      return { message: 'כתובת דוא״ל זו כבר רשומה במערכת. אנא התחבר במקום להירשם.', isDomain: false };
+      return { message: 'כתובת דוא״ל זו כבר רשומה במערכת. אנא התחבר במקום להירשם.', isDomain: false, isNotAllowed: false };
     }
     if (raw.includes('auth/weak-password')) {
-      return { message: 'הסיסמה חלשה מדי. נדרשים לפחות 6 תווים.', isDomain: false };
+      return { message: 'הסיסמה חלשה מדי. נדרשים לפחות 6 תווים.', isDomain: false, isNotAllowed: false };
     }
     if (raw.includes('auth/invalid-email')) {
-      return { message: 'כתובת דוא״ל לא תקינה.', isDomain: false };
+      return { message: 'כתובת דוא״ל לא תקינה.', isDomain: false, isNotAllowed: false };
     }
     if (raw.includes('auth/popup-closed-by-user')) {
-      return { message: 'חלון ההתחברות של Google נסגר לפני השלמת הפעולה.', isDomain: false };
+      return { message: 'חלון ההתחברות של Google נסגר לפני השלמת הפעולה.', isDomain: false, isNotAllowed: false };
     }
     if (raw.includes('auth/popup-blocked')) {
-      return { message: 'הדפדפן חסם את החלון הקופץ של Google. אנא אשר חלונות קופצים בדפדפן ונסה שוב.', isDomain: false };
+      return { message: 'הדפדפן חסם את החלון הקופץ של Google. אנא אשר חלונות קופצים בדפדפן ונסה שוב.', isDomain: false, isNotAllowed: false };
     }
 
-    return { message: raw || 'שגיאה בהתחברות. אנא נסה שוב.', isDomain: false };
+    return { message: raw || 'שגיאה בהתחברות. אנא נסה שוב.', isDomain: false, isNotAllowed: false };
   };
 
   const handleGoogleLogin = async () => {
     setIsSubmitting(true);
     setErrorMsg('');
     setIsDomainError(false);
+    setIsOperationNotAllowedError(false);
     setSuccessMsg('');
     try {
       await signInWithGoogle();
@@ -85,6 +95,7 @@ export const AuthGate: React.FC = () => {
       const parsed = parseAuthError(err);
       setErrorMsg(parsed.message);
       setIsDomainError(parsed.isDomain);
+      setIsOperationNotAllowedError(parsed.isNotAllowed);
     } finally {
       setIsSubmitting(false);
     }
@@ -94,6 +105,7 @@ export const AuthGate: React.FC = () => {
     e.preventDefault();
     setErrorMsg('');
     setIsDomainError(false);
+    setIsOperationNotAllowedError(false);
     setSuccessMsg('');
 
     if (!email.trim()) {
@@ -109,6 +121,7 @@ export const AuthGate: React.FC = () => {
       } catch (err) {
         const parsed = parseAuthError(err);
         setErrorMsg(parsed.message);
+        setIsOperationNotAllowedError(parsed.isNotAllowed);
       } finally {
         setIsSubmitting(false);
       }
@@ -137,6 +150,7 @@ export const AuthGate: React.FC = () => {
       const parsed = parseAuthError(err);
       setErrorMsg(parsed.message);
       setIsDomainError(parsed.isDomain);
+      setIsOperationNotAllowedError(parsed.isNotAllowed);
     } finally {
       setIsSubmitting(false);
     }
@@ -283,8 +297,37 @@ export const AuthGate: React.FC = () => {
           </div>
         )}
 
-        {/* Error message (non-domain error) */}
-        {errorMsg && !isDomainError && (
+        {/* Operation Not Allowed Error Notice Banner */}
+        {isOperationNotAllowedError && (
+          <div className="p-4 mb-5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 text-xs text-right space-y-2.5 shadow-xs animate-in fade-in">
+            <div className="flex items-center gap-2 font-bold text-amber-950">
+              <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+              <span>נדרשת הפעלת "דוא״ל/סיסמה" ב-Firebase Console</span>
+            </div>
+
+            <p className="text-amber-800 leading-relaxed">
+              שגיאת <code className="font-mono bg-amber-100 text-amber-950 px-1.5 py-0.5 rounded font-bold">auth/operation-not-allowed</code> מופיעה מכיוון שספק ההתחברות בדוא״ל וסיסמה עדיין אינו מופעל בפרויקט ה-Firebase שלך.
+            </p>
+
+            <div className="bg-white/90 p-3.5 rounded-xl border border-amber-200 text-slate-700 space-y-2">
+              <div className="font-semibold text-slate-900 flex items-center gap-1.5">
+                <KeyRound className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <span>כיצד להפעיל ב-30 שניות בלבד:</span>
+              </div>
+              <ol className="list-decimal list-inside space-y-1.5 text-[11px] text-slate-700 pr-1 leading-relaxed">
+                <li>היכנס אל <strong>Firebase Console</strong> בכתובת <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-semibold">console.firebase.google.com</a>.</li>
+                <li>בחר בפרויקט שלך (לדוגמה: <strong>bas-purchase</strong>).</li>
+                <li>בתפריט הצד לחץ על <strong>Authentication</strong>.</li>
+                <li>בחר בלשונית <strong>Sign-in method</strong>.</li>
+                <li>לחץ על השורה <strong>Email/Password</strong> (דוא״ל/סיסמה).</li>
+                <li>סמן <strong>Enable</strong> (הפעל) בראש החלון ולחץ על <strong>Save</strong> (שמור).</li>
+              </ol>
+            </div>
+          </div>
+        )}
+
+        {/* Error message (non-special error) */}
+        {errorMsg && !isDomainError && !isOperationNotAllowedError && (
           <div className="p-3 mb-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2 text-right">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span className="flex-1">{errorMsg}</span>
