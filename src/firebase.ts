@@ -1,5 +1,14 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut } from 'firebase/auth';
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
+  sendPasswordResetEmail,
+  signOut as fbSignOut
+} from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
@@ -76,7 +85,39 @@ export async function loginWithGoogle() {
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (error) {
-    console.error('Sign-in error:', error);
+    console.error('Google Sign-in error:', error);
+    throw error;
+  }
+}
+
+export async function loginWithEmail(email: string, pass: string) {
+  try {
+    const result = await signInWithEmailAndPassword(auth, email.trim(), pass);
+    return result.user;
+  } catch (error) {
+    console.error('Email login error:', error);
+    throw error;
+  }
+}
+
+export async function registerWithEmail(email: string, pass: string, displayName?: string) {
+  try {
+    const result = await createUserWithEmailAndPassword(auth, email.trim(), pass);
+    if (displayName && result.user) {
+      await updateProfile(result.user, { displayName });
+    }
+    return result.user;
+  } catch (error) {
+    console.error('Email registration error:', error);
+    throw error;
+  }
+}
+
+export async function resetPassword(email: string) {
+  try {
+    await sendPasswordResetEmail(auth, email.trim());
+  } catch (error) {
+    console.error('Password reset error:', error);
     throw error;
   }
 }
@@ -84,3 +125,4 @@ export async function loginWithGoogle() {
 export async function logoutUser() {
   await fbSignOut(auth);
 }
+

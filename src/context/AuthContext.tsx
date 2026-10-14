@@ -1,7 +1,17 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db, loginWithGoogle, logoutUser, handleFirestoreError, OperationType } from '../firebase';
+import {
+  auth,
+  db,
+  loginWithGoogle,
+  loginWithEmail,
+  registerWithEmail,
+  resetPassword,
+  logoutUser,
+  handleFirestoreError,
+  OperationType
+} from '../firebase';
 import { UserProfile, UserRole } from '../types';
 
 interface AuthContextValue {
@@ -13,6 +23,10 @@ interface AuthContextValue {
   isViewer: boolean;
   loading: boolean;
   signIn: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  signInWithEmail: (email: string, pass: string) => Promise<void>;
+  signUpWithEmail: (email: string, pass: string, displayName?: string) => Promise<void>;
+  sendPasswordReset: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -107,7 +121,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await loginWithGoogle();
     } catch (err) {
-      console.error('Failed to sign in:', err);
+      console.error('Failed to sign in with Google:', err);
+      throw err;
+    }
+  };
+
+  const signInWithGoogle = signIn;
+
+  const signInWithEmail = async (email: string, pass: string) => {
+    try {
+      await loginWithEmail(email, pass);
+    } catch (err) {
+      console.error('Failed to sign in with email:', err);
+      throw err;
+    }
+  };
+
+  const signUpWithEmail = async (email: string, pass: string, displayName?: string) => {
+    try {
+      await registerWithEmail(email, pass, displayName);
+    } catch (err) {
+      console.error('Failed to register with email:', err);
+      throw err;
+    }
+  };
+
+  const sendPasswordReset = async (email: string) => {
+    try {
+      await resetPassword(email);
+    } catch (err) {
+      console.error('Failed to send password reset:', err);
       throw err;
     }
   };
@@ -136,6 +179,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isViewer,
         loading,
         signIn,
+        signInWithGoogle,
+        signInWithEmail,
+        signUpWithEmail,
+        sendPasswordReset,
         signOut,
       }}
     >
