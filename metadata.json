@@ -1,0 +1,6 @@
+{
+  "name": "דוח המלצת רכש ומלאי - Purchase Recommendations Dashboard",
+  "description": "דשבורד מתקדם לניהול המלצות רכש ומלאי, מעקב צריכה, ניהול הרשאות משתמשים וסנכרון נתונים בענן.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

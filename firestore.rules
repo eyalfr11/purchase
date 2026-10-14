@@ -1,0 +1,117 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isBootstrappedAdmin() {
+      return isSignedIn() && request.auth.token.email == 'eyalfr@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+
+    function isManager() {
+      return isAdmin() || (isSignedIn() && exists(/databases/$(database)/documents/managers/$(request.auth.uid)));
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidItem(data) {
+      return data.code is string && data.code.size() <= 64 &&
+             data.desc is string && data.desc.size() <= 255 &&
+             (!('cat' in data) || (data.cat is string && data.cat.size() <= 100)) &&
+             (!('series' in data) || (data.series is string && data.series.size() <= 100)) &&
+             data.stock is number &&
+             (!('cust_ord' in data) || data.cust_ord is number) &&
+             (!('res_ord' in data) || data.res_ord is number) &&
+             (!('po_imp' in data) || data.po_imp is number) &&
+             (!('ship_imp' in data) || data.ship_imp is number) &&
+             data.lead_time is number && data.lead_time >= 0 &&
+             (!('avg3' in data) || data.avg3 is number) &&
+             data.avg6 is number &&
+             (!('avg12' in data) || data.avg12 is number) &&
+             (!('erp_rec' in data) || data.erp_rec is number) &&
+             (!('has_erp_rec' in data) || data.has_erp_rec is bool) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 500)) &&
+             (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64)) &&
+             (!('updatedBy' in data) || (data.updatedBy is string && data.updatedBy.size() <= 128));
+    }
+
+    function isValidUser(data) {
+      return data.email is string && data.email.size() <= 255 &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 128)) &&
+             data.role in ['admin', 'manager', 'viewer'] &&
+             (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 64)) &&
+             (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64));
+    }
+
+    // Items collection (Inventory & Recommendations)
+    match /items/{itemId} {
+      allow get, list: if isSignedIn();
+      allow create: if isManager() && isValidId(itemId) && isValidItem(incoming());
+      allow update: if isManager() && isValidId(itemId) && isValidItem(incoming());
+      allow delete: if isAdmin() && isValidId(itemId);
+    }
+
+    // Users collection (User Profiles & Roles)
+    match /users/{userId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(userId) && request.auth.uid == userId && isValidUser(incoming()) && (
+        incoming().role == 'viewer' || (isBootstrappedAdmin() && incoming().role == 'admin')
+      );
+      allow update: if isValidId(userId) && (
+        // Admin can update user role and data
+        (isAdmin() && isValidUser(incoming())) ||
+        // User can update their own displayName without changing role
+        (isOwner(userId) && isValidUser(incoming()) && incoming().role == existing().role)
+      );
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+
+    // Admins marker collection
+    match /admins/{adminId} {
+      allow get, list: if isSignedIn();
+      allow write: if (isBootstrappedAdmin() || isAdmin()) && isValidId(adminId);
+    }
+
+    // Managers marker collection
+    match /managers/{managerId} {
+      allow get, list: if isSignedIn();
+      allow write: if isAdmin() && isValidId(managerId);
+    }
+
+    // Audit logs collection (Append-only)
+    match /audit_logs/{logId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(logId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().action is string && incoming().action.size() <= 64 &&
+                       incoming().details is string && incoming().details.size() <= 500;
+      allow update, delete: if false; // Immutable audit log
+    }
+  }
+}
